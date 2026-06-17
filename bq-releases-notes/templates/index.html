@@ -37,10 +37,13 @@
                 </div>
                 
                 <div class="header-actions">
-                    <button id="theme-toggle" class="btn-icon" aria-label="Toggle theme">
-                        <i data-lucide="sun" class="sun-icon"></i>
-                        <i data-lucide="moon" class="moon-icon"></i>
-                    </button>
+                    <label class="theme-switch" title="Toggle theme">
+                        <input type="checkbox" id="theme-toggle" aria-label="Toggle theme" />
+                        <span class="slider">
+                            <i data-lucide="moon" class="moon-icon"></i>
+                            <i data-lucide="sun" class="sun-icon"></i>
+                        </span>
+                    </label>
                     <button id="export-csv-btn" class="btn-secondary" title="Export current view to CSV">
                         <i data-lucide="download"></i>
                         <span>Export CSV</span>

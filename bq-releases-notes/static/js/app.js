@@ -76,11 +76,14 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const updateThemeToggleIcon = () => {
+        if (elements.themeToggle) {
+            elements.themeToggle.checked = document.body.classList.contains('light-theme');
+        }
         // Lucide icons will be recreated automatically
         lucide.createIcons();
     };
 
-    elements.themeToggle.addEventListener('click', toggleTheme);
+    elements.themeToggle.addEventListener('change', toggleTheme);
 
     /* ==========================================
        TOAST NOTIFICATIONS
