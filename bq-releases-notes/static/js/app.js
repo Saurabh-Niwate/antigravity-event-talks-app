@@ -40,7 +40,8 @@ document.addEventListener('DOMContentLoaded', () => {
         // Buttons
         retryBtn: document.getElementById('retry-btn'),
         resetFiltersBtn: document.getElementById('reset-filters-btn'),
-        backToTop: document.getElementById('back-to-top')
+        backToTop: document.getElementById('back-to-top'),
+        exportCsvBtn: document.getElementById('export-csv-btn')
     };
 
     // Initialize Icons
@@ -291,6 +292,99 @@ document.addEventListener('DOMContentLoaded', () => {
             });
     };
 
+    const copyNoteText = (dateTitle, note) => {
+        const textToCopy = `BigQuery Release Update (${dateTitle}) - ${note.typeLabel}:\n${note.plainText.trim()}`;
+        
+        navigator.clipboard.writeText(textToCopy)
+            .then(() => {
+                showToast('Note content copied to clipboard!', 'success');
+            })
+            .catch(err => {
+                console.error('Could not copy note text:', err);
+                showToast('Failed to copy note content.', 'error');
+            });
+    };
+
+    const exportToCSV = () => {
+        if (parsedReleases.length === 0) {
+            showToast('No data available to export.', 'error');
+            return;
+        }
+
+        const currentFilteredNotes = [];
+        
+        // Replicate current filters and search to export exactly what is shown
+        let filtered = parsedReleases.map(release => {
+            const matchingNotes = release.notes.filter(note => {
+                if (state.filterType !== 'all' && note.type !== state.filterType) {
+                    return false;
+                }
+                if (state.searchQuery) {
+                    const query = state.searchQuery.toLowerCase();
+                    const matchesTitle = release.title.toLowerCase().includes(query);
+                    const matchesCategory = note.typeLabel.toLowerCase().includes(query);
+                    const matchesContent = note.plainText.includes(query);
+                    return matchesTitle || matchesCategory || matchesContent;
+                }
+                return true;
+            });
+            return {
+                ...release,
+                notes: matchingNotes
+            };
+        }).filter(release => release.notes.length > 0);
+
+        if (state.sortBy === 'newest') {
+            filtered.sort((a, b) => new Date(b.updated) - new Date(a.updated));
+        } else {
+            filtered.sort((a, b) => new Date(a.updated) - new Date(b.updated));
+        }
+
+        filtered.forEach(release => {
+            release.notes.forEach(note => {
+                currentFilteredNotes.push({
+                    date: release.title,
+                    updated: release.updated,
+                    category: note.typeLabel,
+                    description: note.plainText.replace(/\s+/g, ' ').trim()
+                });
+            });
+        });
+
+        if (currentFilteredNotes.length === 0) {
+            showToast('No matching notes to export with current filters.', 'error');
+            return;
+        }
+
+        const escapeCSV = (text) => {
+            if (!text) return '""';
+            return '"' + text.replace(/"/g, '""') + '"';
+        };
+
+        const csvHeaders = ['Date', 'Updated Timestamp', 'Category', 'Description'];
+        const csvRows = [csvHeaders.join(',')];
+
+        currentFilteredNotes.forEach(item => {
+            const row = [
+                escapeCSV(item.date),
+                escapeCSV(item.updated),
+                escapeCSV(item.category),
+                escapeCSV(item.description)
+            ];
+            csvRows.push(row.join(','));
+        });
+
+        const csvContent = 'data:text/csv;charset=utf-8,\uFEFF' + encodeURIComponent(csvRows.join('\n'));
+        const link = document.createElement('a');
+        link.setAttribute('href', csvContent);
+        link.setAttribute('download', `bigquery_release_notes_${state.filterType}_${state.sortBy}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        showToast(`Exported ${currentFilteredNotes.length} notes to CSV!`, 'success');
+    };
+
     const shareOnTwitter = (dateTitle, note) => {
         const url = new URL(window.location.href);
         url.hash = note.id;
@@ -397,8 +491,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 copyBtn.innerHTML = '<i data-lucide="share-2" style="width: 16px; height: 16px;"></i>';
                 copyBtn.addEventListener('click', () => copyNoteLink(note.id));
                 
+                const copyTextBtn = document.createElement('button');
+                copyTextBtn.className = 'btn-card-action';
+                copyTextBtn.setAttribute('title', 'Copy note content to clipboard');
+                copyTextBtn.innerHTML = '<i data-lucide="copy" style="width: 16px; height: 16px;"></i>';
+                copyTextBtn.addEventListener('click', () => copyNoteText(release.title, note));
+                
                 actions.appendChild(tweetBtn);
                 actions.appendChild(copyBtn);
+                actions.appendChild(copyTextBtn);
                 header.appendChild(badge);
                 header.appendChild(actions);
                 
@@ -501,6 +602,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Refresh button
     elements.refreshBtn.addEventListener('click', fetchFeed);
     elements.retryBtn.addEventListener('click', fetchFeed);
+    elements.exportCsvBtn.addEventListener('click', exportToCSV);
 
     // Scroll and Back to Top
     window.addEventListener('scroll', () => {
