@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="A premium BigQuery Release Notes dashboard with live feed fetching, filtering, searching, and advanced timeline visualization.">
+    <title>BigQuery Release Notes Explorer</title>
+    <!-- Google Fonts: Inter and Outfit -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Main Custom Stylesheet -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <!-- Lucide Icons CDN -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body class="dark-theme">
+    <!-- Toast notification container -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <div class="app-container">
+        <!-- Sidebar or Header -->
+        <header class="app-header">
+            <div class="header-main">
+                <div class="logo-area">
+                    <div class="logo-icon">
+                        <svg viewBox="0 0 24 24" width="28" height="28" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                            <ellipse cx="12" cy="5" rx="9" ry="3"></ellipse>
+                            <path d="M3 5V19A9 3 0 0 0 21 19V5"></path>
+                            <path d="M3 12A9 3 0 0 0 21 12"></path>
+                        </svg>
+                    </div>
+                    <div class="logo-text">
+                        <h1>BigQuery <span>Release Notes</span></h1>
+                        <p class="subtitle">Real-time Google Cloud BigQuery Feed Explorer</p>
+                    </div>
+                </div>
+                
+                <div class="header-actions">
+                    <button id="theme-toggle" class="btn-icon" aria-label="Toggle theme">
+                        <i data-lucide="sun" class="sun-icon"></i>
+                        <i data-lucide="moon" class="moon-icon"></i>
+                    </button>
+                    <button id="refresh-btn" class="btn-primary">
+                        <i data-lucide="refresh-cw" class="icon-refresh"></i>
+                        <span>Refresh Feed</span>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Stats Dashboard Banner -->
+            <div class="stats-dashboard">
+                <div class="stat-card">
+                    <div class="stat-icon-wrapper blue">
+                        <i data-lucide="calendar"></i>
+                    </div>
+                    <div class="stat-info">
+                        <span class="stat-label">Feed Entries</span>
+                        <h2 id="stat-entries">-</h2>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon-wrapper green">
+                        <i data-lucide="sparkles"></i>
+                    </div>
+                    <div class="stat-info">
+                        <span class="stat-label">Features</span>
+                        <h2 id="stat-features">-</h2>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon-wrapper amber">
+                        <i data-lucide="alert-triangle"></i>
+                    </div>
+                    <div class="stat-info">
+                        <span class="stat-label">Deprecations</span>
+                        <h2 id="stat-deprecations">-</h2>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon-wrapper red">
+                        <i data-lucide="bug"></i>
+                    </div>
+                    <div class="stat-info">
+                        <span class="stat-label">Issues</span>
+                        <h2 id="stat-issues">-</h2>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Controls Section -->
+        <section class="controls-section">
+            <div class="search-wrapper">
+                <i data-lucide="search" class="search-icon"></i>
+                <input type="text" id="search-input" placeholder="Search release notes by keywords, dates, features..." aria-label="Search release notes">
+                <button id="clear-search" class="clear-btn" style="display: none;">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            
+            <div class="filter-wrapper">
+                <div class="filter-pills" id="filter-pills">
+                    <button class="pill active" data-filter="all">All Updates</button>
+                    <button class="pill" data-filter="feature">Features</button>
+                    <button class="pill" data-filter="change">Changes</button>
+                    <button class="pill" data-filter="deprecation">Deprecations</button>
+                    <button class="pill" data-filter="issue">Issues</button>
+                    <button class="pill" data-filter="notice">Notices</button>
+                </div>
+                
+                <div class="sort-wrapper">
+                    <label for="sort-select"><i data-lucide="arrow-up-down"></i> Sort:</label>
+                    <select id="sort-select" class="select-dropdown">
+                        <option value="newest">Newest First</option>
+                        <option value="oldest">Oldest First</option>
+                    </select>
+                </div>
+            </div>
+        </section>
+
+        <!-- Main Workspace Area -->
+        <main class="main-content">
+            <!-- Loading State (Shimmer Skeletons) -->
+            <div id="loading-state" class="loading-state">
+                <div class="skeleton-entry">
+                    <div class="skeleton-date"></div>
+                    <div class="skeleton-cards">
+                        <div class="skeleton-card"></div>
+                        <div class="skeleton-card"></div>
+                    </div>
+                </div>
+                <div class="skeleton-entry">
+                    <div class="skeleton-date"></div>
+                    <div class="skeleton-cards">
+                        <div class="skeleton-card"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Error State -->
+            <div id="error-state" class="error-state" style="display: none;">
+                <div class="error-icon">
+                    <i data-lucide="alert-octagon"></i>
+                </div>
+                <h3>Failed to load release notes</h3>
+                <p id="error-message">Could not connect to the local Flask API. Please check if the server is running.</p>
+                <button id="retry-btn" class="btn-secondary">
+                    <i data-lucide="rotate-ccw"></i> Try Again
+                </button>
+            </div>
+
+            <!-- Empty State -->
+            <div id="empty-state" class="empty-state" style="display: none;">
+                <div class="empty-icon">
+                    <i data-lucide="search-code"></i>
+                </div>
+                <h3>No matching release notes</h3>
+                <p>We couldn't find any updates matching your search query or filters. Try adjusting your terms.</p>
+                <button id="reset-filters-btn" class="btn-text">Reset Filters</button>
+            </div>
+
+            <!-- Timeline Render Container -->
+            <div id="timeline-container" class="timeline-container" style="display: none;">
+                <!-- Dynamically populated via JS -->
+            </div>
+        </main>
+
+        <!-- Back to Top Button -->
+        <button id="back-to-top" class="back-to-top btn-icon" aria-label="Back to top">
+            <i data-lucide="chevron-up"></i>
+        </button>
+
+        <!-- Footer -->
+        <footer class="app-footer">
+            <p>Data fetched from <a href="https://docs.cloud.google.com/feeds/bigquery-release-notes.xml" target="_blank" rel="noopener noreferrer">Google Cloud Feed <i data-lucide="external-link" class="inline-icon"></i></a></p>
+            <p class="copyright">Built with Flask &bull; Vanilla HTML, JS, CSS &bull; 2026</p>
+        </footer>
+    </div>
+
+    <!-- Application Script -->
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
